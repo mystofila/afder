@@ -4,6 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
 <meta name="theme-color" content="#0d0d0d">
+<meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <title>AFDER – Communauté</title>
@@ -30,7 +31,7 @@
   --bh:64px;
   --safe-bottom:env(safe-area-inset-bottom,0px);
 }
-html,body{height:100%;overflow:hidden;font-family:var(--font);background:var(--g50);color:var(--g700);font-size:15px}
+html,body{height:100%;overflow:hidden;font-family:var(--font);background:#fafafa;color:#333;font-size:15px}
 
 /* ── SCREENS ── */
 .screen{position:fixed;inset:0;display:flex;flex-direction:column;background:var(--g50)}
@@ -453,15 +454,18 @@ window.addEventListener('load', async () => {
 
 async function setCU(user) {
   const m = user.user_metadata || {};
-  // Charger profil depuis BDD pour avoir avatar
-  const { data: prof } = await sb.from('profiles').select('*').eq('pseudo', m.pseudo).single();
-  CU = {
-    id: user.id,
-    pseudo: m.pseudo || prof?.pseudo || 'user',
-    prenom: m.prenom || prof?.prenom || '',
-    avatar: prof?.avatar || null,
-    isAdmin: ADMINS.includes(m.pseudo || prof?.pseudo)
-  };
+  const pseudo = m.pseudo || 'user';
+  const prenom = m.prenom || '';
+  let avatar = null;
+  // Charger avatar depuis localStorage d'abord (rapide)
+  const cached = localStorage.getItem('av_' + pseudo);
+  if (cached) avatar = cached;
+  // Essayer de charger depuis BDD (optionnel, pas bloquant)
+  try {
+    const { data: prof } = await sb.from('profiles').select('avatar,prenom').eq('pseudo', pseudo).maybeSingle();
+    if (prof?.avatar) { avatar = prof.avatar; localStorage.setItem('av_' + pseudo, avatar); }
+  } catch(e) { /* ignore */ }
+  CU = { id: user.id, pseudo, prenom, avatar, isAdmin: ADMINS.includes(pseudo) };
   localStorage.setItem('afder_cu', JSON.stringify(CU));
 }
 
@@ -628,7 +632,7 @@ function postHTML(p) {
 
 async function toggleLike(id) {
   if (!CU) return;
-  const { data:p } = await sb.from('posts').select('likes').eq('id',id).single();
+  const { data:p } = await sb.from('posts').select('likes').eq('id',id).maybeSingle();
   if (!p) return;
   const likes = p.likes||[];
   const i = likes.indexOf(CU.pseudo);
@@ -695,7 +699,7 @@ function closeCtx() { document.getElementById('ctx-menu').classList.remove('on')
 
 async function ctxFlag() {
   closeCtx(); if(!ctxPostId||!CU) return;
-  const { data:p } = await sb.from('posts').select('flags').eq('id',ctxPostId).single();
+  const { data:p } = await sb.from('posts').select('flags').eq('id',ctxPostId).maybeSingle();
   if (!p) return;
   const flags=p.flags||[];
   if (!flags.includes(CU.pseudo)) { flags.push(CU.pseudo); await sb.from('posts').update({flags}).eq('id',ctxPostId); }
@@ -708,7 +712,7 @@ async function ctxDelete() {
 }
 async function ctxMP() {
   const id=ctxPostId; closeCtx();
-  const { data:p } = await sb.from('posts').select('pseudo,anon').eq('id',id).single();
+  const { data:p } = await sb.from('posts').select('pseudo,anon').eq('id',id).maybeSingle();
   if (p&&!p.anon) openChat(p.pseudo);
   else toast("Impossible d'écrire à un anonyme");
 }
