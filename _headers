@@ -1,0 +1,2 @@
+/*
+  Content-Security-Policy: default-src 'self'; script-src 'self' 'unsafe-eval' 'unsafe-inline' https://cdn.botpress.cloud https://files.bpcontent.cloud; connect-src 'self' https://*.botpress.cloud https://*.bpcontent.cloud; frame-src 'self' https://cdn.botpress.cloud; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:;
